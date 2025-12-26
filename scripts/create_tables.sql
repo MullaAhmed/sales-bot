@@ -1,6 +1,6 @@
 -- Run this in Supabase SQL Editor to create the required tables
 
-CREATE TABLE IF NOT EXISTS tenants (
+CREATE TABLE IF NOT EXISTS companies (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS tenants (
 
 CREATE TABLE IF NOT EXISTS products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID REFERENCES tenants(id),
+    company_id UUID REFERENCES companies(id),
     name TEXT NOT NULL,
     sku TEXT,
     description TEXT,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS products (
 
 CREATE TABLE IF NOT EXISTS orders (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID REFERENCES tenants(id),
+    company_id UUID REFERENCES companies(id),
     customer_email TEXT NOT NULL,
     status TEXT DEFAULT 'pending',
     total DECIMAL(10,2),
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS shipments (
 
 CREATE TABLE IF NOT EXISTS support_tickets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID REFERENCES tenants(id),
+    company_id UUID REFERENCES companies(id),
     customer_email TEXT NOT NULL,
     subject TEXT,
     message TEXT,
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS support_tickets (
 
 CREATE TABLE IF NOT EXISTS documents (
     id TEXT PRIMARY KEY,
-    tenant_id UUID REFERENCES tenants(id),
+    company_id UUID REFERENCES companies(id),
     collection TEXT NOT NULL,
     title TEXT,
     text TEXT NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS documents (
 
 CREATE TABLE IF NOT EXISTS conversations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id UUID REFERENCES tenants(id),
+    company_id UUID REFERENCES companies(id),
     customer_id TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -77,12 +77,12 @@ CREATE TABLE IF NOT EXISTS messages (
 );
 
 -- Indexes
-CREATE INDEX IF NOT EXISTS idx_products_tenant ON products(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_orders_tenant ON orders(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_products_company ON products(company_id);
+CREATE INDEX IF NOT EXISTS idx_orders_company ON orders(company_id);
 CREATE INDEX IF NOT EXISTS idx_shipments_tracking ON shipments(tracking_number);
-CREATE INDEX IF NOT EXISTS idx_support_tickets_tenant ON support_tickets(tenant_id);
-CREATE INDEX IF NOT EXISTS idx_conversations_tenant ON conversations(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_support_tickets_company ON support_tickets(company_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_company ON conversations(company_id);
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(conversation_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_documents_tenant ON documents(tenant_id, collection);
-CREATE INDEX IF NOT EXISTS idx_documents_active ON documents(tenant_id, collection, is_active);
+CREATE INDEX IF NOT EXISTS idx_documents_company ON documents(company_id, collection);
+CREATE INDEX IF NOT EXISTS idx_documents_active ON documents(company_id, collection, is_active);

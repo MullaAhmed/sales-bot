@@ -1,49 +1,49 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from app.api.schemas import (
     ChatRequest, ChatResponse, ConversationResponse,
     IngestRequest, IngestResponse,
 )
-from app.db import get_pool, TenantDB
+from app.db import get_pool, CompanyDB
 from app.vector import VectorStore
 from app.services import RAGService, ToolService, ChatbotService
 
 router = APIRouter()
 
+# Singleton service instances (initialized after app startup)
+_db: CompanyDB | None = None
+_rag: RAGService | None = None
+_chatbot: ChatbotService | None = None
 
-async def get_services():
-    """Dependency to get initialized services."""
-    pool = await get_pool()
-    db = TenantDB(pool)
+
+def init_services():
+    """Initialize service instances. Called after app startup."""
+    global _db, _rag, _chatbot
+    pool = get_pool()
+    _db = CompanyDB(pool)
     vector_store = VectorStore()
-    rag = RAGService(vector_store, db)
-    tools = ToolService(db)
-    chatbot = ChatbotService(rag, tools, db)
-    return {"db": db, "rag": rag, "chatbot": chatbot, "vector_store": vector_store}
+    _rag = RAGService(vector_store, _db)
+    tools = ToolService(_db)
+    _chatbot = ChatbotService(_rag, tools, _db)
 
 
 @router.post("/chat", response_model=ChatResponse)
-async def chat(request: ChatRequest, services: dict = Depends(get_services)):
+async def chat(request: ChatRequest):
     """Send a message to the chatbot."""
-    db: TenantDB = services["db"]
-    chatbot: ChatbotService = services["chatbot"]
+    company = await _db.get_company(request.company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
 
-    # Verify tenant exists
-    tenant = await db.get_tenant(request.tenant_id)
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant not found")
-
-    # Get or create conversation
     conversation_id = request.conversation_id
     if conversation_id:
-        conv = await db.get_conversation(conversation_id)
-        if not conv or str(conv["tenant_id"]) != request.tenant_id:
+        conv = await _db.get_conversation(conversation_id)
+        if not conv or str(conv["company_id"]) != request.company_id:
             raise HTTPException(status_code=404, detail="Conversation not found")
     else:
-        conversation_id = await db.create_conversation(request.tenant_id)
+        conversation_id = await _db.create_conversation(request.company_id)
 
-    result = await chatbot.chat(
-        tenant_id=request.tenant_id,
-        company_name=tenant["name"],
+    result = await _chatbot.chat(
+        company_id=request.company_id,
+        company_name=company["name"],
         message=request.message,
         conversation_id=conversation_id,
     )
@@ -52,59 +52,51 @@ async def chat(request: ChatRequest, services: dict = Depends(get_services)):
 
 
 @router.get("/conversations/{conversation_id}", response_model=ConversationResponse)
-async def get_conversation(conversation_id: str, services: dict = Depends(get_services)):
+async def get_conversation(conversation_id: str):
     """Get conversation history."""
-    db: TenantDB = services["db"]
-
-    conv = await db.get_conversation(conversation_id)
+    conv = await _db.get_conversation(conversation_id)
     if not conv:
         raise HTTPException(status_code=404, detail="Conversation not found")
 
-    messages = await db.get_messages(conversation_id)
+    messages = await _db.get_messages(conversation_id)
 
     return ConversationResponse(
         conversation_id=conversation_id,
-        tenant_id=str(conv["tenant_id"]),
+        company_id=str(conv["company_id"]),
         messages=messages,
     )
 
 
 @router.post("/ingest/documents", response_model=IngestResponse)
-async def ingest_documents(request: IngestRequest, services: dict = Depends(get_services)):
-    """Ingest FAQ/policy documents for a tenant."""
-    db: TenantDB = services["db"]
-    rag: RAGService = services["rag"]
-
-    tenant = await db.get_tenant(request.tenant_id)
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant not found")
+async def ingest_documents(request: IngestRequest):
+    """Ingest FAQ/policy documents for a company."""
+    company = await _db.get_company(request.company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
 
     documents = [
         {"id": d.id, "text": d.text, "title": d.title or "", "metadata": d.metadata or {}}
         for d in request.documents
     ]
 
-    await rag.ingest_documents(request.tenant_id, "documents", documents)
+    await _rag.ingest_documents(request.company_id, "documents", documents)
 
     return IngestResponse(success=True, count=len(documents))
 
 
 @router.post("/ingest/products", response_model=IngestResponse)
-async def ingest_products(request: IngestRequest, services: dict = Depends(get_services)):
+async def ingest_products(request: IngestRequest):
     """Ingest product descriptions for semantic search."""
-    db: TenantDB = services["db"]
-    rag: RAGService = services["rag"]
-
-    tenant = await db.get_tenant(request.tenant_id)
-    if not tenant:
-        raise HTTPException(status_code=404, detail="Tenant not found")
+    company = await _db.get_company(request.company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
 
     documents = [
         {"id": d.id, "text": d.text, "title": d.title or "", "metadata": d.metadata or {}}
         for d in request.documents
     ]
 
-    await rag.ingest_documents(request.tenant_id, "products", documents)
+    await _rag.ingest_documents(request.company_id, "products", documents)
 
     return IngestResponse(success=True, count=len(documents))
 

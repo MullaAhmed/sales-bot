@@ -1,7 +1,8 @@
+import asyncio
 import json
 from openai import AsyncOpenAI
 from app.config import get_settings
-from app.db import TenantDB
+from app.db import CompanyDB
 from app.services.rag import RAGService
 from app.services.tools import ToolService
 
@@ -30,7 +31,7 @@ SYSTEM_PROMPT = """You are a helpful customer support assistant for {company_nam
 class ChatbotService:
     """Main chatbot service with RAG and tool calling."""
 
-    def __init__(self, rag: RAGService, tools: ToolService, db: TenantDB):
+    def __init__(self, rag: RAGService, tools: ToolService, db: CompanyDB):
         self.rag = rag
         self.tools = tools
         self.db = db
@@ -39,7 +40,7 @@ class ChatbotService:
 
     async def chat(
         self,
-        tenant_id: str,
+        company_id: str,
         company_name: str,
         message: str,
         conversation_id: str,
@@ -49,14 +50,14 @@ class ChatbotService:
 
         Returns: {response: str, tool_calls: list, sources: list}
         """
-        # 1. Retrieve relevant documents
-        rag_results = await self.rag.retrieve(tenant_id, message)
+        # 1. Fetch RAG context and history in parallel
+        rag_results, history = await asyncio.gather(
+            self.rag.retrieve(company_id, message),
+            self.db.get_messages(conversation_id),
+        )
         context = self.rag.format_context(rag_results)
 
-        # 2. Load conversation history from DB
-        history = await self.db.get_messages(conversation_id)
-
-        # 3. Build messages
+        # 2. Build messages
         system = SYSTEM_PROMPT.format(
             company_name=company_name,
             context=context if context else "No relevant documents found.",
@@ -66,10 +67,10 @@ class ChatbotService:
         messages.extend(history)
         messages.append({"role": "user", "content": message})
 
-        # 4. Save user message to DB
+        # 3. Save user message to DB
         await self.db.add_message(conversation_id, "user", message)
 
-        # 5. Call LLM with tools
+        # 4. Call LLM with tools
         response = await self.client.chat.completions.create(
             model=self.model,
             messages=messages,
@@ -80,7 +81,7 @@ class ChatbotService:
         assistant_message = response.choices[0].message
         tool_calls_made = []
 
-        # 6. Handle tool calls (loop until no more tool calls)
+        # 5. Handle tool calls (loop until no more tool calls)
         while assistant_message.tool_calls:
             messages.append(assistant_message)
 
@@ -88,7 +89,7 @@ class ChatbotService:
                 func_name = tool_call.function.name
                 func_args = json.loads(tool_call.function.arguments)
 
-                result = await self.tools.execute(tenant_id, func_name, func_args)
+                result = await self.tools.execute(company_id, func_name, func_args)
                 tool_calls_made.append({
                     "name": func_name,
                     "arguments": func_args,
@@ -115,7 +116,7 @@ class ChatbotService:
             for r in rag_results
         ]
 
-        # 7. Save assistant response to DB
+        # 6. Save assistant response to DB
         await self.db.add_message(
             conversation_id,
             "assistant",

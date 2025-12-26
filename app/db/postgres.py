@@ -1,23 +1,7 @@
 import asyncpg
-from app.config import get_settings
-
-_pool: asyncpg.Pool | None = None
+from app.dependencies import get_services
 
 
-async def get_pool() -> asyncpg.Pool:
-    global _pool
-    if _pool is None:
-        settings = get_settings()
-        _pool = await asyncpg.create_pool(
-            settings.database_url,
-            min_size=2,
-            max_size=10,
-        )
-    return _pool
-
-
-async def close_pool():
-    global _pool
-    if _pool:
-        await _pool.close()
-        _pool = None
+def get_pool() -> asyncpg.Pool:
+    """Get the singleton database pool."""
+    return get_services().db_pool

@@ -1,14 +1,13 @@
-from fastembed import TextEmbedding, SparseTextEmbedding
-from app.config import get_settings
+from app.dependencies import get_services
 
 
 class EmbeddingService:
     """Generates dense and sparse embeddings using FastEmbed."""
 
     def __init__(self):
-        settings = get_settings()
-        self.dense_model = TextEmbedding(model_name=settings.dense_model)
-        self.sparse_model = SparseTextEmbedding(model_name=settings.sparse_model)
+        services = get_services()
+        self.dense_model = services.dense_model
+        self.sparse_model = services.sparse_model
 
     def embed_dense(self, texts: list[str]) -> list[list[float]]:
         embeddings = list(self.dense_model.embed(texts))

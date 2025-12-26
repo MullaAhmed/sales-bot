@@ -1,17 +1,17 @@
-from app.db import TenantDB
+from app.db import CompanyDB
 from app.vector import VectorStore
 
 
 class RAGService:
     """Retrieval-Augmented Generation for FAQ and policy documents."""
 
-    def __init__(self, vector_store: VectorStore, db: TenantDB):
+    def __init__(self, vector_store: VectorStore, db: CompanyDB):
         self.vector_store = vector_store
         self.db = db
 
     async def ingest_documents(
         self,
-        tenant_id: str,
+        company_id: str,
         collection: str,
         documents: list[dict],
     ):
@@ -22,7 +22,7 @@ class RAGService:
         # Save to Supabase (source of truth)
         for doc in documents:
             await self.db.upsert_document(
-                tenant_id=tenant_id,
+                company_id=company_id,
                 collection=collection,
                 doc_id=doc["id"],
                 text=doc["text"],
@@ -32,20 +32,20 @@ class RAGService:
 
         # Save embeddings + text to Qdrant
         await self.vector_store.upsert(
-            tenant_id=tenant_id,
+            company_id=company_id,
             collection=collection,
             documents=documents,
         )
 
     async def retrieve(
         self,
-        tenant_id: str,
+        company_id: str,
         query: str,
         limit: int = 3,
     ) -> list[dict]:
         """Retrieve relevant documents for a query."""
         return await self.vector_store.hybrid_search(
-            tenant_id=tenant_id,
+            company_id=company_id,
             collection="documents",
             query=query,
             limit=limit,

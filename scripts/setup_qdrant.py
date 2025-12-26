@@ -31,6 +31,11 @@ def setup():
                 "dense": models.VectorParams(
                     size=768,  # jina-embeddings-v2-base-en
                     distance=models.Distance.COSINE,
+                    quantization_config=models.ScalarQuantization(
+                        type=models.ScalarType.INT8,
+                        quantile=0.99,
+                        always_ram=True,
+                    ),
                 )
             },
             sparse_vectors_config={
@@ -44,8 +49,11 @@ def setup():
         # Create payload indexes for filtering
         client.create_payload_index(
             collection_name=name,
-            field_name="tenant_id",
-            field_schema=models.PayloadSchemaType.KEYWORD,
+            field_name="company_id",
+            field_schema=models.KeywordIndexParams(
+                type=models.KeywordIndexType.KEYWORD,
+                is_tenant=True,
+            ),
         )
         client.create_payload_index(
             collection_name=name,

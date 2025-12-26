@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 
 class ChatRequest(BaseModel):
-    tenant_id: str
+    company_id: str
     message: str
     conversation_id: str | None = None  # If None, creates new conversation
 
@@ -16,7 +16,7 @@ class ChatResponse(BaseModel):
 
 class ConversationResponse(BaseModel):
     conversation_id: str
-    tenant_id: str
+    company_id: str
     messages: list[dict]
 
 
@@ -28,7 +28,7 @@ class DocumentInput(BaseModel):
 
 
 class IngestRequest(BaseModel):
-    tenant_id: str
+    company_id: str
     documents: list[DocumentInput]
 
 

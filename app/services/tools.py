@@ -1,11 +1,11 @@
 import json
-from app.db import TenantDB
+from app.db import CompanyDB
 
 
 class ToolService:
     """Tool implementations for the chatbot."""
 
-    def __init__(self, db: TenantDB):
+    def __init__(self, db: CompanyDB):
         self.db = db
 
     # Tool definitions for OpenAI function calling
@@ -91,7 +91,7 @@ class ToolService:
         }
     ]
 
-    async def execute(self, tenant_id: str, tool_name: str, arguments: dict) -> str:
+    async def execute(self, company_id: str, tool_name: str, arguments: dict) -> str:
         """Execute a tool and return the result as a string."""
         handlers = {
             "search_products": self._search_products,
@@ -104,11 +104,11 @@ class ToolService:
         if not handler:
             return json.dumps({"error": f"Unknown tool: {tool_name}"})
 
-        result = await handler(tenant_id, **arguments)
+        result = await handler(company_id, **arguments)
         return json.dumps(result, default=str)
 
-    async def _search_products(self, tenant_id: str, query: str) -> dict:
-        products = await self.db.search_products(tenant_id, query)
+    async def _search_products(self, company_id: str, query: str) -> dict:
+        products = await self.db.search_products(company_id, query)
         if not products:
             return {"found": False, "message": "No products found matching your search."}
         return {
@@ -126,8 +126,8 @@ class ToolService:
             ]
         }
 
-    async def _get_product_details(self, tenant_id: str, product_id: str) -> dict:
-        product = await self.db.get_product(tenant_id, product_id)
+    async def _get_product_details(self, company_id: str, product_id: str) -> dict:
+        product = await self.db.get_product(company_id, product_id)
         if not product:
             return {"found": False, "message": "Product not found."}
         return {
@@ -144,13 +144,13 @@ class ToolService:
         }
 
     async def _track_package(
-        self, tenant_id: str, order_id: str = None, tracking_number: str = None
+        self, company_id: str, order_id: str = None, tracking_number: str = None
     ) -> dict:
         order = None
         if order_id:
-            order = await self.db.get_order(tenant_id, order_id)
+            order = await self.db.get_order(company_id, order_id)
         elif tracking_number:
-            order = await self.db.get_order_by_tracking(tenant_id, tracking_number)
+            order = await self.db.get_order_by_tracking(company_id, tracking_number)
 
         if not order:
             return {"found": False, "message": "Order not found. Please check your order ID or tracking number."}
@@ -168,10 +168,10 @@ class ToolService:
         }
 
     async def _create_support_ticket(
-        self, tenant_id: str, customer_email: str, subject: str, message: str
+        self, company_id: str, customer_email: str, subject: str, message: str
     ) -> dict:
         ticket_id = await self.db.log_support_ticket(
-            tenant_id, customer_email, subject, message
+            company_id, customer_email, subject, message
         )
         return {
             "success": True,

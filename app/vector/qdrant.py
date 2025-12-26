@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
-from qdrant_client import QdrantClient, models
-from app.config import get_settings
+from qdrant_client import models
+from app.dependencies import get_services
 from app.vector.embeddings import EmbeddingService
 
 
@@ -8,16 +8,12 @@ class VectorStore:
     """Qdrant vector store with hybrid search support."""
 
     def __init__(self):
-        settings = get_settings()
-        self.client = QdrantClient(
-            url=settings.qdrant_url,
-            api_key=settings.qdrant_api_key,
-        )
+        self.client = get_services().qdrant
         self.embeddings = EmbeddingService()
 
     async def upsert(
         self,
-        tenant_id: str,
+        company_id: str,
         collection: str,
         documents: list[dict],
     ):
@@ -38,7 +34,7 @@ class VectorStore:
                     "sparse": models.SparseVector(**emb["sparse"]),
                 },
                 payload={
-                    "tenant_id": tenant_id,
+                    "company_id": company_id,
                     "title": doc.get("title", ""),
                     "text": doc["text"],
                     "is_active": True,
@@ -49,11 +45,11 @@ class VectorStore:
             for doc, emb in zip(documents, embeddings)
         ]
 
-        self.client.upsert(collection_name=collection, points=points)
+        await self.client.upsert(collection_name=collection, points=points)
 
     async def hybrid_search(
         self,
-        tenant_id: str,
+        company_id: str,
         collection: str,
         query: str,
         limit: int = 5,
@@ -62,11 +58,11 @@ class VectorStore:
         dense = self.embeddings.embed_dense([query])[0]
         sparse = self.embeddings.embed_sparse([query])[0]
 
-        tenant_filter = models.Filter(
+        company_filter = models.Filter(
             must=[
                 models.FieldCondition(
-                    key="tenant_id",
-                    match=models.MatchValue(value=tenant_id),
+                    key="company_id",
+                    match=models.MatchValue(value=company_id),
                 ),
                 models.FieldCondition(
                     key="is_active",
@@ -75,20 +71,20 @@ class VectorStore:
             ]
         )
 
-        results = self.client.query_points(
+        results = await self.client.query_points(
             collection_name=collection,
             prefetch=[
                 models.Prefetch(
                     query=dense,
                     using="dense",
                     limit=limit * 2,
-                    filter=tenant_filter,
+                    filter=company_filter,
                 ),
                 models.Prefetch(
                     query=models.SparseVector(**sparse),
                     using="sparse",
                     limit=limit * 2,
-                    filter=tenant_filter,
+                    filter=company_filter,
                 ),
             ],
             query=models.FusionQuery(fusion=models.Fusion.RRF),
@@ -102,7 +98,7 @@ class VectorStore:
 
     async def deactivate(self, collection: str, doc_id: str):
         """Soft delete by setting is_active to False."""
-        self.client.set_payload(
+        await self.client.set_payload(
             collection_name=collection,
             payload={"is_active": False, "updated_at": datetime.now(timezone.utc).isoformat()},
             points=[doc_id],
