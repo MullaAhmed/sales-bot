@@ -44,7 +44,7 @@ class RAGService:
         limit: int = 3,
     ) -> list[dict]:
         """Retrieve relevant documents for a query."""
-        return await self.vector_store.hybrid_search(
+        return await self.vector_store.search(
             company_id=company_id,
             collection="documents",
             query=query,

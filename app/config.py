@@ -16,9 +16,8 @@ class Settings(BaseSettings):
     # OpenAI
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-    # Embedding models (FastEmbed)
-    dense_model: str = "jinaai/jina-embeddings-v2-base-en"
-    sparse_model: str = "Qdrant/bm42-all-minilm-l6-v2-attentions"
+    # Embedding model (FastEmbed) - 384 dimensions, very fast
+    embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     class Config:
         env_file = ".env"

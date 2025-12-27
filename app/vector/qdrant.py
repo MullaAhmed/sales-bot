@@ -5,7 +5,7 @@ from app.vector.embeddings import EmbeddingService
 
 
 class VectorStore:
-    """Qdrant vector store with hybrid search support."""
+    """Qdrant vector store with dense search."""
 
     def __init__(self):
         self.client = get_services().qdrant
@@ -18,21 +18,17 @@ class VectorStore:
         documents: list[dict],
     ):
         """
-        Upsert documents with hybrid embeddings.
+        Upsert documents with embeddings.
         Each doc: {id, text, title (optional)}
-        Text is stored in Supabase, only metadata in Qdrant.
         """
         texts = [d["text"] for d in documents]
-        embeddings = self.embeddings.embed_hybrid(texts)
+        embeddings = self.embeddings.embed(texts)
         now = datetime.now(timezone.utc).isoformat()
 
         points = [
             models.PointStruct(
                 id=doc["id"],
-                vector={
-                    "dense": emb["dense"],
-                    "sparse": models.SparseVector(**emb["sparse"]),
-                },
+                vector=emb,
                 payload={
                     "company_id": company_id,
                     "title": doc.get("title", ""),
@@ -47,47 +43,31 @@ class VectorStore:
 
         await self.client.upsert(collection_name=collection, points=points)
 
-    async def hybrid_search(
+    async def search(
         self,
         company_id: str,
         collection: str,
         query: str,
         limit: int = 5,
     ) -> list[dict]:
-        """Hybrid search using RRF fusion of dense and sparse results."""
-        dense = self.embeddings.embed_dense([query])[0]
-        sparse = self.embeddings.embed_sparse([query])[0]
-
-        company_filter = models.Filter(
-            must=[
-                models.FieldCondition(
-                    key="company_id",
-                    match=models.MatchValue(value=company_id),
-                ),
-                models.FieldCondition(
-                    key="is_active",
-                    match=models.MatchValue(value=True),
-                ),
-            ]
-        )
+        """Dense vector search."""
+        query_embedding = self.embeddings.embed([query])[0]
 
         results = await self.client.query_points(
             collection_name=collection,
-            prefetch=[
-                models.Prefetch(
-                    query=dense,
-                    using="dense",
-                    limit=limit * 2,
-                    filter=company_filter,
-                ),
-                models.Prefetch(
-                    query=models.SparseVector(**sparse),
-                    using="sparse",
-                    limit=limit * 2,
-                    filter=company_filter,
-                ),
-            ],
-            query=models.FusionQuery(fusion=models.Fusion.RRF),
+            query=query_embedding,
+            query_filter=models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="company_id",
+                        match=models.MatchValue(value=company_id),
+                    ),
+                    models.FieldCondition(
+                        key="is_active",
+                        match=models.MatchValue(value=True),
+                    ),
+                ]
+            ),
             limit=limit,
         )
 

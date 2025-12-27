@@ -10,6 +10,7 @@ from app.services.tools import ToolService
 SYSTEM_PROMPT = """You are a helpful customer support assistant for {company_name}.
 
 ## Priority Flow (handle in this order):
+0. Always answer from the provided context first
 1. URGENT: Shipping issues, order problems, payment failures - escalate if needed
 2. HIGH: Product availability, pricing questions
 3. MEDIUM: General product inquiries, policy questions

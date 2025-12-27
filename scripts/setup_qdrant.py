@@ -27,22 +27,10 @@ def setup():
 
         client.create_collection(
             collection_name=name,
-            vectors_config={
-                "dense": models.VectorParams(
-                    size=768,  # jina-embeddings-v2-base-en
-                    distance=models.Distance.COSINE,
-                    quantization_config=models.ScalarQuantization(
-                        type=models.ScalarType.INT8,
-                        quantile=0.99,
-                        always_ram=True,
-                    ),
-                )
-            },
-            sparse_vectors_config={
-                "sparse": models.SparseVectorParams(
-                    modifier=models.Modifier.IDF,
-                )
-            },
+            vectors_config=models.VectorParams(
+                size=384,  # all-MiniLM-L6-v2
+                distance=models.Distance.COSINE,
+            ),
         )
         print(f"Created collection '{name}'")
 

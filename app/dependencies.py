@@ -2,7 +2,7 @@
 
 import asyncpg
 from qdrant_client import AsyncQdrantClient
-from fastembed import TextEmbedding, SparseTextEmbedding
+from fastembed import TextEmbedding
 
 from app.config import get_settings
 
@@ -15,8 +15,7 @@ class Services:
     def __init__(self):
         self.db_pool: asyncpg.Pool | None = None
         self.qdrant: AsyncQdrantClient | None = None
-        self.dense_model: TextEmbedding | None = None
-        self.sparse_model: SparseTextEmbedding | None = None
+        self.embedding_model: TextEmbedding | None = None
 
     @classmethod
     def get(cls) -> "Services":
@@ -45,10 +44,9 @@ class Services:
             api_key=settings.qdrant_api_key,
         )
 
-        # Embedding models (slow - loads on first use)
-        print("Loading embedding models...")
-        self.dense_model = TextEmbedding(model_name=settings.dense_model)
-        self.sparse_model = SparseTextEmbedding(model_name=settings.sparse_model)
+        # Embedding model (all-MiniLM-L6-v2 is small and fast)
+        print("Loading embedding model...")
+        self.embedding_model = TextEmbedding(model_name=settings.embedding_model)
 
         print("All services initialized.")
 
