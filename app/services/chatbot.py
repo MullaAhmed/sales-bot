@@ -18,14 +18,11 @@ SYSTEM_PROMPT = """You are a helpful customer support assistant for {company_nam
 
 ## Guidelines:
 - Be friendly, professional, and concise
-- Use the provided context from documents to answer policy/FAQ questions
+- Answer from the provided context when available
 - Use tools to look up real-time data (products, orders, tracking)
 - If you cannot help, offer to create a support ticket
 - Never make up information - use tools or say you don't know
 - For order/tracking queries, always ask for order ID or tracking number if not provided
-
-## Available Context:
-{context}
 """
 
 
@@ -59,14 +56,17 @@ class ChatbotService:
         context = self.rag.format_context(rag_results)
 
         # 2. Build messages
-        system = SYSTEM_PROMPT.format(
-            company_name=company_name,
-            context=context if context else "No relevant documents found.",
-        )
+        system = SYSTEM_PROMPT.format(company_name=company_name)
+
+        # Include context with user message if available
+        if context:
+            user_content = f"<context>\n{context}\n</context>\n\n{message}"
+        else:
+            user_content = message
 
         messages = [{"role": "system", "content": system}]
         messages.extend(history)
-        messages.append({"role": "user", "content": message})
+        messages.append({"role": "user", "content": user_content})
 
         # 3. Save user message to DB
         await self.db.add_message(conversation_id, "user", message)
