@@ -1,14 +1,14 @@
 -- Run this in Supabase SQL Editor to create the required tables
 
 CREATE TABLE IF NOT EXISTS companies (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    id TEXT PRIMARY KEY,  -- Alphanumeric slug derived from company name (e.g., "acme-corp")
     name TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    company_id UUID REFERENCES companies(id),
+    company_id TEXT REFERENCES companies(id),
     name TEXT NOT NULL,
     sku TEXT,
     description TEXT,
@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS products (
 
 CREATE TABLE IF NOT EXISTS orders (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    company_id UUID REFERENCES companies(id),
+    company_id TEXT REFERENCES companies(id),
     customer_email TEXT NOT NULL,
     status TEXT DEFAULT 'pending',
     total DECIMAL(10,2),
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS shipments (
 
 CREATE TABLE IF NOT EXISTS support_tickets (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    company_id UUID REFERENCES companies(id),
+    company_id TEXT REFERENCES companies(id),
     customer_email TEXT NOT NULL,
     subject TEXT,
     message TEXT,
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS support_tickets (
 
 CREATE TABLE IF NOT EXISTS documents (
     id TEXT PRIMARY KEY,
-    company_id UUID REFERENCES companies(id),
+    company_id TEXT REFERENCES companies(id),
     collection TEXT NOT NULL,
     title TEXT,
     text TEXT NOT NULL,
@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS documents (
 
 CREATE TABLE IF NOT EXISTS conversations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    company_id UUID REFERENCES companies(id),
+    company_id TEXT REFERENCES companies(id),
     customer_id TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
