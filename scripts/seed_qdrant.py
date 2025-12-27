@@ -1,13 +1,17 @@
 """Seed Qdrant with sample documents via API endpoints."""
 
 import asyncio
-import sys
-from pathlib import Path
+import uuid
 
 import httpx
 
+
+def make_uuid(name: str) -> str:
+    """Generate a deterministic UUID from a string name."""
+    return str(uuid.uuid5(uuid.NAMESPACE_DNS, name))
+
 # Default API base URL
-API_BASE_URL = "http://localhost:8000"
+API_BASE_URL = "http://localhost:8000/api"
 
 # Sample company ID (matches seed_data.sql)
 COMPANY_ID = "acme-store"
@@ -15,7 +19,7 @@ COMPANY_ID = "acme-store"
 # Sample FAQ/Policy documents
 SAMPLE_DOCUMENTS = [
     {
-        "id": "faq-shipping",
+        "id": make_uuid("faq-shipping"),
         "title": "Shipping Policy",
         "text": """
 Our standard shipping takes 3-5 business days. Express shipping is available for an additional fee and delivers within 1-2 business days.
@@ -25,7 +29,7 @@ Free shipping is available on orders over $50. Orders are processed within 24 ho
         "metadata": {"category": "shipping", "type": "faq"},
     },
     {
-        "id": "faq-returns",
+        "id": make_uuid("faq-returns"),
         "title": "Return Policy",
         "text": """
 We offer a 30-day return policy on all items. Items must be in original condition with tags attached.
@@ -36,7 +40,7 @@ Exchanges are also available for different sizes or colors of the same item.
         "metadata": {"category": "returns", "type": "faq"},
     },
     {
-        "id": "faq-warranty",
+        "id": make_uuid("faq-warranty"),
         "title": "Warranty Information",
         "text": """
 All electronic products come with a 1-year manufacturer warranty. The warranty covers defects in materials and workmanship.
@@ -47,7 +51,7 @@ Extended warranty options are available for purchase at checkout.
         "metadata": {"category": "warranty", "type": "faq"},
     },
     {
-        "id": "faq-payment",
+        "id": make_uuid("faq-payment"),
         "title": "Payment Methods",
         "text": """
 We accept all major credit cards including Visa, Mastercard, American Express, and Discover.
@@ -57,7 +61,7 @@ All transactions are secured with SSL encryption. We never store your full credi
         "metadata": {"category": "payment", "type": "faq"},
     },
     {
-        "id": "faq-contact",
+        "id": make_uuid("faq-contact"),
         "title": "Contact Information",
         "text": """
 Customer support is available Monday through Friday, 9 AM to 6 PM EST.
@@ -72,7 +76,7 @@ For urgent issues outside business hours, please email and we'll respond within 
 # Sample product descriptions (enriched for semantic search)
 SAMPLE_PRODUCTS = [
     {
-        "id": "prod-wm-001",
+        "id": make_uuid("prod-wm-001"),
         "title": "Wireless Mouse",
         "text": """
 Wireless Mouse (SKU: WM-001) - $29.99
@@ -88,7 +92,7 @@ Perfect for office work, gaming, and everyday use.
         "metadata": {"sku": "WM-001", "price": 29.99, "category": "accessories"},
     },
     {
-        "id": "prod-kb-002",
+        "id": make_uuid("prod-kb-002"),
         "title": "Mechanical Keyboard",
         "text": """
 Mechanical Keyboard (SKU: KB-002) - $89.99
@@ -104,7 +108,7 @@ Ideal for gaming, programming, and typing enthusiasts.
         "metadata": {"sku": "KB-002", "price": 89.99, "category": "accessories"},
     },
     {
-        "id": "prod-hb-003",
+        "id": make_uuid("prod-hb-003"),
         "title": "USB-C Hub",
         "text": """
 USB-C Hub (SKU: HB-003) - $49.99
@@ -120,7 +124,7 @@ Compatible with MacBook, iPad Pro, and USB-C laptops.
         "metadata": {"sku": "HB-003", "price": 49.99, "category": "accessories"},
     },
     {
-        "id": "prod-ls-004",
+        "id": make_uuid("prod-ls-004"),
         "title": "Laptop Stand",
         "text": """
 Laptop Stand (SKU: LS-004) - $39.99
@@ -136,7 +140,7 @@ Ergonomic design raises screen to eye level for better posture.
         "metadata": {"sku": "LS-004", "price": 39.99, "category": "accessories"},
     },
     {
-        "id": "prod-wc-005",
+        "id": make_uuid("prod-wc-005"),
         "title": "Webcam HD",
         "text": """
 Webcam HD (SKU: WC-005) - $59.99
@@ -202,18 +206,9 @@ async def check_health(client: httpx.AsyncClient) -> bool:
 async def main():
     """Run the seeding process."""
     # Parse command line args
-    company_id = COMPANY_ID
-    api_url = API_BASE_URL
-
-    if len(sys.argv) > 1:
-        company_id = sys.argv[1]
-    if len(sys.argv) > 2:
-        api_url = sys.argv[2]
-        global API_BASE_URL
-        API_BASE_URL = api_url
-
+   
     print(f"Seeding Qdrant via API at {API_BASE_URL}")
-    print(f"Company ID: {company_id}")
+    print(f"Company ID: {COMPANY_ID}")
     print("-" * 40)
 
     async with httpx.AsyncClient(timeout=60.0) as client:
@@ -222,22 +217,20 @@ async def main():
         if not await check_health(client):
             print("Error: API is not running. Start the server first:")
             print("  uvicorn app.main:app --reload")
-            sys.exit(1)
         print("  API is healthy")
         print()
 
         # Seed documents
-        docs_ok = await seed_documents(client, company_id)
+        docs_ok = await seed_documents(client, COMPANY_ID)
 
         # Seed products
-        products_ok = await seed_products(client, company_id)
+        products_ok = await seed_products(client, COMPANY_ID)
 
         print()
         if docs_ok and products_ok:
             print("Seeding completed successfully!")
         else:
             print("Seeding completed with errors.")
-            sys.exit(1)
 
 
 if __name__ == "__main__":

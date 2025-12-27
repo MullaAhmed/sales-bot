@@ -1,19 +1,21 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
+from dotenv import load_dotenv
+import os
+load_dotenv(override=True)
 
 
 class Settings(BaseSettings):
     # Database (Supabase PostgreSQL - use direct connection port 5432)
-    database_url: str = "postgresql://user:pass@db.supabase.co:5432/postgres"
+    database_url: str = os.getenv("DATABASE_URL")
 
     # Qdrant
-    qdrant_url: str = "http://localhost:6333"
-    qdrant_api_key: str | None = None
+    qdrant_url: str = os.getenv("QDRANT_URL", "http://localhost:6333")
+    qdrant_api_key: str | None = os.getenv("QDRANT_API_KEY")
 
     # OpenAI
-    openai_api_key: str = ""
-    openai_model: str = "gpt-4o-mini"
-
+    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
     # Embedding models (FastEmbed)
     dense_model: str = "jinaai/jina-embeddings-v2-base-en"
     sparse_model: str = "Qdrant/bm42-all-minilm-l6-v2-attentions"

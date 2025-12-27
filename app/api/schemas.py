@@ -1,10 +1,24 @@
 from pydantic import BaseModel
+from typing import Any
+
+
+class MessagePart(BaseModel):
+    type: str
+    text: str | None = None
+
+
+class Message(BaseModel):
+    role: str
+    content: str
+    parts: list[MessagePart] | None = None
 
 
 class ChatRequest(BaseModel):
-    company_id: str
-    message: str
-    conversation_id: str | None = None  # If None, creates new conversation
+    """Request format from Vercel AI SDK useChat hook."""
+    id: str | None = None
+    messages: list[Message]
+    company_id: str = "acme-store"
+    conversation_id: str | None = None
 
 
 class ChatResponse(BaseModel):

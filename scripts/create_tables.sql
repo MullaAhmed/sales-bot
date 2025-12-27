@@ -1,7 +1,7 @@
 -- Run this in Supabase SQL Editor to create the required tables
 
 CREATE TABLE IF NOT EXISTS companies (
-    id TEXT PRIMARY KEY,  -- Alphanumeric slug derived from company name (e.g., "acme-corp")
+    id TEXT PRIMARY KEY,  -- Alphanumeric slug derived from company name (e.g., "acme-store")
     name TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
