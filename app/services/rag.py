@@ -1,7 +1,7 @@
-from app.db import CompanyDB
-from app.db.models import TTLCache
-from app.vector import VectorStore
 import asyncio
+
+from app.db import CompanyDB, TTLCache
+from app.vector import VectorStore
 
 class RAGService:
     """Retrieval-Augmented Generation for FAQ and policy documents."""

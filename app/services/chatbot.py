@@ -3,8 +3,7 @@ import json
 import time
 from openai import AsyncOpenAI
 from app.config import get_settings
-from app.db import CompanyDB
-from app.db.models import TTLCache
+from app.db import CompanyDB, TTLCache
 from app.services.rag import RAGService
 from app.services.tools import ToolService
 
