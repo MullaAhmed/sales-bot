@@ -15,10 +15,9 @@ class Message(BaseModel):
 
 class ChatRequest(BaseModel):
     """Request format from Vercel AI SDK useChat hook."""
-    id: str | None = None
     messages: list[Message]
     company_id: str = "acme-store"
-    conversation_id: str | None = None
+    conversation_id: str
 
 
 class ChatResponse(BaseModel):

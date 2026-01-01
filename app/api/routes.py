@@ -39,13 +39,11 @@ async def _get_company_and_conversation(request: ChatRequest):
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
 
+    # Get or create conversation
     conversation_id = request.conversation_id
-    if conversation_id:
-        conv = await _db.get_conversation(conversation_id)
-        if not conv or str(conv["company_id"]) != request.company_id:
-            raise HTTPException(status_code=404, detail="Conversation not found")
-    else:
-        conversation_id = await _db.create_conversation(request.company_id)
+    conv = await _db.get_conversation(conversation_id)
+    if not conv:
+        await _db.create_conversation(request.company_id, conversation_id)
 
     return message, company, conversation_id
 

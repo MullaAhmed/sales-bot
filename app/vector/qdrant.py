@@ -49,9 +49,11 @@ class VectorStore:
         collection: str,
         query: str,
         limit: int = 5,
+        score_threshold: float = 0.0,
     ) -> list[dict]:
-        """Dense vector search."""
-        query_embedding = self.embeddings.embed([query])[0]
+        """Dense vector search with optional score filtering."""
+        query_embedding = await self.embeddings.embed_async([query])
+        query_embedding = query_embedding[0]
 
         results = await self.client.query_points(
             collection_name=collection,
@@ -69,6 +71,7 @@ class VectorStore:
                 ]
             ),
             limit=limit,
+            score_threshold=score_threshold if score_threshold > 0 else None,
         )
 
         return [

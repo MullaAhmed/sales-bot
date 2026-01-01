@@ -6,9 +6,11 @@ import { Overview } from "@/components/overview";
 import { useScrollToBottom } from "@/hooks/use-scroll-to-bottom";
 import { useChat } from "ai/react";
 import { toast } from "sonner";
+import { useMemo } from "react";
 
 export function Chat() {
-  const chatId = "001";
+  // Generate a stable UUID for this chat session
+  const chatId = useMemo(() => crypto.randomUUID(), []);
 
   const {
     messages,
@@ -37,9 +39,8 @@ export function Chat() {
     },
     body: {
       company_id: "acme-store",
-      user_id: 123,
-      enable_rag: true
-   }
+      conversation_id: chatId,
+    }
   });
 
   const [messagesContainerRef, messagesEndRef] =

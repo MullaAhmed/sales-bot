@@ -1,3 +1,4 @@
+import asyncio
 import json
 import time
 from typing import Any
@@ -102,14 +103,15 @@ class CompanyDB:
 
     # Conversation methods
 
-    async def create_conversation(self, company_id: str, customer_id: str | None = None) -> str:
-        conv_id = await self.pool.fetchval(
-            """INSERT INTO conversations (company_id, customer_id)
+    async def create_conversation(self, company_id: str, conversation_id: str) -> str:
+        """Create a new conversation with the given ID."""
+        await self.pool.execute(
+            """INSERT INTO conversations (id, company_id)
                VALUES ($1, $2)
-               RETURNING id""",
-            company_id, customer_id
+               ON CONFLICT (id) DO NOTHING""",
+            conversation_id, company_id
         )
-        return str(conv_id)
+        return conversation_id
 
     async def get_conversation(self, conversation_id: str) -> dict | None:
         row = await self.pool.fetchrow(
@@ -137,22 +139,41 @@ class CompanyDB:
         tool_calls: list | None = None,
         sources: list | None = None,
     ) -> str:
+        """Add a message and update conversation timestamp in a single query."""
         msg_id = await self.pool.fetchval(
-            """INSERT INTO messages (conversation_id, role, content, tool_calls, sources)
-               VALUES ($1, $2, $3, $4, $5)
-               RETURNING id""",
+            """WITH msg AS (
+                   INSERT INTO messages (conversation_id, role, content, tool_calls, sources)
+                   VALUES ($1, $2, $3, $4, $5)
+                   RETURNING id, conversation_id
+               ), upd AS (
+                   UPDATE conversations SET updated_at = NOW()
+                   WHERE id = (SELECT conversation_id FROM msg)
+               )
+               SELECT id FROM msg""",
             conversation_id,
             role,
             content,
             json.dumps(tool_calls) if tool_calls else None,
             json.dumps(sources) if sources else None,
         )
-        # Update conversation timestamp
-        await self.pool.execute(
-            "UPDATE conversations SET updated_at = NOW() WHERE id = $1",
-            conversation_id
-        )
         return str(msg_id)
+
+    def add_message_fire_and_forget(
+        self,
+        conversation_id: str,
+        role: str,
+        content: str,
+        tool_calls: list | None = None,
+        sources: list | None = None,
+    ) -> None:
+        """Add a message without waiting for completion (fire-and-forget)."""
+        async def _task():
+            try:
+                await self.add_message(conversation_id, role, content, tool_calls, sources)
+            except Exception as e:
+                print(f"[ERROR] Fire-and-forget add_message failed: {e}")
+
+        asyncio.create_task(_task())
 
     # Document methods
 
