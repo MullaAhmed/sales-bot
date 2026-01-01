@@ -15,12 +15,13 @@ class Settings(BaseSettings):
 
     # OpenAI
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
-    openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    openai_model: str = os.getenv("OPENAI_MODEL", "gpt-5-nano")
     # Embedding model (FastEmbed) - 384 dimensions, very fast
     embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
 
     class Config:
         env_file = ".env"
+        extra = "ignore"
 
 
 @lru_cache

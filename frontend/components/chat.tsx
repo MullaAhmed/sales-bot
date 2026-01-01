@@ -21,7 +21,7 @@ export function Chat() {
     stop,
     error,
   } = useChat({
-    api: "/api/chat",
+    api: "/api/chat/stream",
     // @ts-ignore
     onError: (error) => {
       console.error("Chat error:", error);
