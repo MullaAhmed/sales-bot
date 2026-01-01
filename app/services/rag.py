@@ -1,7 +1,8 @@
 import asyncio
 
 from app.db import CompanyDB, TTLCache
-from app.vector import VectorStore
+from app.vector import VectorStore, TextChunker
+
 
 class RAGService:
     """Retrieval-Augmented Generation for FAQ and policy documents."""
@@ -9,7 +10,8 @@ class RAGService:
     def __init__(self, vector_store: VectorStore, db: CompanyDB):
         self.vector_store = vector_store
         self.db = db
-        self._rag_cache = TTLCache(ttl=600)  # 1 minute cache
+        self._rag_cache = TTLCache(ttl=600)  # 10 minute cache
+        self._chunker = TextChunker(max_tokens=256, overlap_tokens=50)
 
     async def ingest_documents(
         self,
@@ -18,10 +20,10 @@ class RAGService:
         documents: list[dict],
     ):
         """
-        Ingest documents.
+        Ingest documents with automatic chunking.
         Each doc: {id, text, title (optional), metadata (optional)}
         """
-        # Save to Supabase (source of truth)
+        # Save original documents to Supabase (source of truth)
         for doc in documents:
             await self.db.upsert_document(
                 company_id=company_id,
@@ -32,11 +34,14 @@ class RAGService:
                 metadata=doc.get("metadata"),
             )
 
-        # Save embeddings + text to Qdrant
+        # Chunk documents for vector storage
+        chunks = self._chunker.chunk_documents(documents)
+
+        # Save chunked embeddings to Qdrant
         await self.vector_store.upsert(
             company_id=company_id,
             collection=collection,
-            documents=documents,
+            documents=chunks,
         )
 
     async def retrieve(
