@@ -38,7 +38,7 @@ export function Chat() {
       console.log("Message finished:", message);
     },
     body: {
-      company_id: "acme-store",
+      company_id: "winston",
       conversation_id: chatId,
     }
   });

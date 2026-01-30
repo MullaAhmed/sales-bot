@@ -18,23 +18,25 @@ This API provides endpoints for a multi-company customer support chatbot. The ba
 POST /chat
 ```
 
-Send a message to the chatbot. Creates a new conversation if `conversation_id` is not provided.
+Send a message to the chatbot. Uses Vercel AI SDK format.
 
 **Request Body:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `company_id` | string | Yes | Company identifier (UUID) |
-| `message` | string | Yes | User's message |
-| `conversation_id` | string | No | Existing conversation ID. If omitted, creates new conversation |
+| `company_id` | string | Yes | Company identifier (slug) |
+| `messages` | array | Yes | Array of message objects with `role` and `content` |
+| `conversation_id` | string | Yes | Conversation ID |
 
 **Example Request:**
 
 ```json
 {
-  "company_id": "11111111-1111-1111-1111-111111111111",
-  "message": "What is your return policy?",
-  "conversation_id": null
+  "company_id": "acme-store",
+  "messages": [
+    {"role": "user", "content": "What is your return policy?"}
+  ],
+  "conversation_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
 
@@ -64,11 +66,29 @@ Send a message to the chatbot. Creates a new conversation if `conversation_id` i
 
 ```json
 {
-  "company_id": "11111111-1111-1111-1111-111111111111",
-  "message": "Can I track my order?",
+  "company_id": "acme-store",
+  "messages": [
+    {"role": "user", "content": "What is your return policy?"},
+    {"role": "assistant", "content": "Our return policy allows returns within 30 days..."},
+    {"role": "user", "content": "Can I track my order?"}
+  ],
   "conversation_id": "550e8400-e29b-41d4-a716-446655440000"
 }
 ```
+
+---
+
+#### Send Message (Streaming)
+
+```
+POST /chat/stream
+```
+
+Send a message to the chatbot with streaming response. Uses Vercel AI SDK format.
+
+**Request Body:** Same as `/chat`
+
+**Response:** Server-Sent Events stream with Vercel AI SDK format.
 
 ---
 
@@ -102,7 +122,7 @@ Retrieve full message history for a conversation.
 ```json
 {
   "conversation_id": "550e8400-e29b-41d4-a716-446655440000",
-  "company_id": "11111111-1111-1111-1111-111111111111",
+  "company_id": "acme-store",
   "messages": [
     {"role": "user", "content": "What is your return policy?"},
     {"role": "assistant", "content": "Our return policy allows..."},
@@ -144,7 +164,7 @@ Add or update FAQ/policy documents for RAG retrieval.
 
 ```json
 {
-  "company_id": "11111111-1111-1111-1111-111111111111",
+  "company_id": "acme-store",
   "documents": [
     {
       "id": "faq-returns",
@@ -187,7 +207,7 @@ Add or update product descriptions for semantic search.
 
 ```json
 {
-  "company_id": "11111111-1111-1111-1111-111111111111",
+  "company_id": "acme-store",
   "documents": [
     {
       "id": "prod-001",
@@ -223,23 +243,24 @@ GET /health
 
 ```javascript
 // State
-let conversationId = null;
+let conversationId = crypto.randomUUID();
+let messages = [];
 
 async function sendMessage(message) {
+  messages.push({ role: 'user', content: message });
+
   const response = await fetch('/api/chat', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      company_id: TENANT_ID,
-      message: message,
+      company_id: COMPANY_ID,
+      messages: messages,
       conversation_id: conversationId
     })
   });
 
   const data = await response.json();
-
-  // Save conversation_id for subsequent messages
-  conversationId = data.conversation_id;
+  messages.push({ role: 'assistant', content: data.response });
 
   return data.response;
 }
@@ -263,7 +284,8 @@ async function loadHistory(convId) {
 
 ```javascript
 function startNewConversation() {
-  conversationId = null;
+  conversationId = crypto.randomUUID();
+  messages = [];
   clearChatUI();
 }
 ```
@@ -276,10 +298,7 @@ The chatbot can invoke these tools automatically:
 
 | Tool | Description | Trigger Examples |
 |------|-------------|------------------|
-| `search_products` | Search products by name/SKU | "Do you have wireless mice?" |
 | `get_product_details` | Get specific product info | "Tell me about product WM-001" |
-| `track_package` | Track order/shipment | "Where is my order?" |
-| `create_support_ticket` | Escalate to human | "I need to speak to someone" |
 
 Tool results are included in `tool_calls` array in the response.
 
@@ -297,7 +316,7 @@ Tool results are included in `tool_calls` array in the response.
 
 ```json
 {
-  "detail": "Tenant not found"
+  "detail": "Company not found"
 }
 ```
 

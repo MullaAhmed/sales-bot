@@ -1,7 +1,7 @@
 -- Run this in Supabase SQL Editor to create the required tables
 
 CREATE TABLE IF NOT EXISTS companies (
-    id TEXT PRIMARY KEY,  -- Alphanumeric slug derived from company name (e.g., "acme-store")
+    id TEXT PRIMARY KEY,  -- Alphanumeric slug derived from company name (e.g., "winston")
     name TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -10,11 +10,18 @@ CREATE TABLE IF NOT EXISTS products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     company_id TEXT REFERENCES companies(id),
     name TEXT NOT NULL,
+    handle TEXT,
     sku TEXT,
     description TEXT,
+    short_description TEXT,
     price DECIMAL(10,2),
+    compare_at_price DECIMAL(10,2),
     stock INT DEFAULT 0,
-    created_at TIMESTAMPTZ DEFAULT NOW()
+    image_url TEXT,
+    images JSONB DEFAULT '[]',
+    variants JSONB DEFAULT '[]',
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    UNIQUE(company_id, handle)
 );
 
 CREATE TABLE IF NOT EXISTS orders (
@@ -78,6 +85,8 @@ CREATE TABLE IF NOT EXISTS messages (
 
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_products_company ON products(company_id);
+CREATE INDEX IF NOT EXISTS idx_products_handle ON products(company_id, handle);
+CREATE INDEX IF NOT EXISTS idx_products_sku ON products(company_id, sku);
 CREATE INDEX IF NOT EXISTS idx_orders_company ON orders(company_id);
 CREATE INDEX IF NOT EXISTS idx_shipments_tracking ON shipments(tracking_number);
 CREATE INDEX IF NOT EXISTS idx_support_tickets_company ON support_tickets(company_id);

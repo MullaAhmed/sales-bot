@@ -6,6 +6,7 @@ import { motion } from "framer-motion";
 import { SparklesIcon } from "./icons";
 import { Markdown } from "./markdown";
 import { PreviewAttachment } from "./preview-attachment";
+import { ProductList } from "./product-card";
 import { cn } from "@/lib/utils";
 
 export const PreviewMessage = ({
@@ -48,12 +49,25 @@ export const PreviewMessage = ({
                 if (state === "result") {
                   const { result } = toolInvocation;
 
+            
+
+                  if (toolName === "get_product_details" && result?.found && result?.product) {
+                    return (
+                      <div key={toolCallId}>
+                        <ProductList products={[result.product]} />
+                      </div>
+                    );
+                  }
+
+                  // Default rendering for other tools
                   return (
                     <div key={toolCallId} className="bg-muted rounded-lg p-3">
                       <div className="text-xs text-muted-foreground mb-2">
-                        Tool: {toolName}
+                        {toolName === "track_package" ? "📦 Package Tracking" :
+                         toolName === "create_support_ticket" ? "🎫 Support Ticket" :
+                         `Tool: ${toolName}`}
                       </div>
-                      <pre className="text-sm overflow-x-auto">
+                      <pre className="text-sm overflow-x-auto whitespace-pre-wrap">
                         {JSON.stringify(result, null, 2)}
                       </pre>
                     </div>
@@ -65,7 +79,9 @@ export const PreviewMessage = ({
                     className="bg-muted rounded-lg p-3 animate-pulse"
                   >
                     <div className="text-xs text-muted-foreground">
-                      Calling {toolName}...
+                        {toolName === "get_product_details" ? "📦 Loading product..." :
+                       toolName === "track_package" ? "📦 Tracking package..." :
+                       `Calling ${toolName}...`}
                     </div>
                   </div>
                 );

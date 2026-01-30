@@ -11,19 +11,18 @@ from app.services.tools import ToolService
 SYSTEM_PROMPT = """You are a helpful customer support assistant for {company_name}.
 
 ## Priority Flow (handle in this order):
-0. Always answer from the provided context first
-1. URGENT: Shipping issues, order problems, payment failures - escalate if needed
-2. HIGH: Product availability, pricing questions
-3. MEDIUM: General product inquiries, policy questions
-4. LOW: General FAQs, company information
+0. HIGH: Product availability, pricing questions
+1. MEDIUM: General product inquiries, policy questions
+2. LOW: General FAQs, company information
 
 ## Guidelines:
+- Do not keep suggesting random questions to the user
+- Make sure the responses are well structured markdown and easy to read
+- Always respond as a human agent would (under 30 words)
 - Be friendly, professional, and concise
 - Answer from the provided context when available
-- Use tools to look up real-time data (products, orders, tracking)
-- If you cannot help, offer to create a support ticket
-- Never make up information - use tools or say you don't know
-- For order/tracking queries, always ask for order ID or tracking number if not provided
+
+
 """
 
 
@@ -68,14 +67,15 @@ class ChatbotService:
         return json.loads(result)
 
 
-    async def chat(self, company_id: str, company_name: str, message: str, conversation_id: str) -> dict:
+    async def chat(self, company_id: str, company_name: str, message: str, conversation_id: str, history: list[dict] | None = None) -> dict:
         """Send a chat message and get a response."""
-        # Prepare context (RAG and history in parallel)
-        rag_results, history = await asyncio.gather(
-            self.rag.retrieve(company_id, message),
-            self._get_history(conversation_id),
-        )
+        # Prepare context (RAG retrieval)
+        rag_results = await self.rag.retrieve(company_id, message)
         context = self.rag.format_context(rag_results)
+
+        # Use provided history or fetch from DB
+        if history is None:
+            history = await self._get_history(conversation_id)
         sources = [{"source": r.get("source"), "score": r.get("score")} for r in rag_results]
 
         # Build messages
@@ -145,14 +145,16 @@ class ChatbotService:
             "sources": sources,
         }
 
-    async def chat_stream(self, company_id: str, company_name: str, message: str, conversation_id: str):
+    async def chat_stream(self, company_id: str, company_name: str, message: str, conversation_id: str, history: list[dict] | None = None):
         """Send a chat message and stream the response."""
-        # Prepare context (RAG and history in parallel)
-        rag_results, history = await asyncio.gather(
-            self.rag.retrieve(company_id, message),
-            self._get_history(conversation_id),
-        )
+        # Prepare context (RAG retrieval)
+        rag_results = await self.rag.retrieve(company_id, message)
         context = self.rag.format_context(rag_results)
+
+        # Use provided history or fetch from DB
+        print("History before fetch:", history)
+        if history is None:
+            history = await self._get_history(conversation_id)
         sources = [{"source": r.get("source"), "score": r.get("score")} for r in rag_results]
 
         # Build messages
@@ -161,7 +163,7 @@ class ChatbotService:
         messages = [{"role": "system", "content": system}]
         messages.extend(history)
         messages.append({"role": "user", "content": user_content})
-
+        print("Final messages:", messages)
         # Update cache and fire-and-forget DB save
         await self._update_history_cache(conversation_id, "user", message)
         self.db.add_message_fire_and_forget(conversation_id, "user", message)
@@ -183,8 +185,8 @@ class ChatbotService:
             response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                tools=ToolService.TOOL_DEFINITIONS if use_tools else None,
-                tool_choice="auto" if use_tools else None,
+                # tools=ToolService.TOOL_DEFINITIONS if use_tools else None,
+                # tool_choice="auto" if use_tools else None,
                 stream=True,
                 service_tier="priority",
                 reasoning_effort="minimal",
@@ -223,7 +225,9 @@ class ChatbotService:
 
             # If no tool calls, we're done
             if finish_reason != "tool_calls" or not current_tool_calls:
+                print("No more tool calls, finishing up.")
                 break
+            
 
             # Process tool calls
             messages.append({"role": "assistant", "content": None, "tool_calls": [

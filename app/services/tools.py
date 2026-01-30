@@ -13,88 +13,71 @@ class ToolService:
         {
             "type": "function",
             "function": {
-                "name": "search_products",
-                "description": "Search for products by name, SKU, or description",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "query": {
-                            "type": "string",
-                            "description": "Search query for product name, SKU, or keywords"
-                        }
-                    },
-                    "required": ["query"]
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
                 "name": "get_product_details",
-                "description": "Get detailed information about a specific product",
+                "description": "Get detailed information about a specific product. IMPORTANT: This tool gets details for ONE product at a time. If the user mentions or asks about multiple products, you MUST call this tool multiple times (once for each product_id).",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "product_id": {
                             "type": "string",
-                            "description": "The product ID"
+                            "description": "The product ID (only one ID per call)"
                         }
                     },
                     "required": ["product_id"]
                 }
             }
         },
-        {
-            "type": "function",
-            "function": {
-                "name": "track_package",
-                "description": "Track a package by order ID or tracking number",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "order_id": {
-                            "type": "string",
-                            "description": "The order ID"
-                        },
-                        "tracking_number": {
-                            "type": "string",
-                            "description": "The carrier tracking number"
-                        }
-                    }
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "create_support_ticket",
-                "description": "Create a support ticket and escalate to human agent",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "customer_email": {
-                            "type": "string",
-                            "description": "Customer's email address"
-                        },
-                        "subject": {
-                            "type": "string",
-                            "description": "Brief subject of the issue"
-                        },
-                        "message": {
-                            "type": "string",
-                            "description": "Detailed description of the issue"
-                        }
-                    },
-                    "required": ["customer_email", "subject", "message"]
-                }
-            }
-        }
+    #     {
+    #         "type": "function",
+    #         "function": {
+    #             "name": "track_package",
+    #             "description": "Track a package by order ID or tracking number",
+    #             "parameters": {
+    #                 "type": "object",
+    #                 "properties": {
+    #                     "order_id": {
+    #                         "type": "string",
+    #                         "description": "The order ID"
+    #                     },
+    #                     "tracking_number": {
+    #                         "type": "string",
+    #                         "description": "The carrier tracking number"
+    #                     }
+    #                 }
+    #             }
+    #         }
+    #     },
+    #     {
+    #         "type": "function",
+    #         "function": {
+    #             "name": "create_support_ticket",
+    #             "description": "Create a support ticket and escalate to human agent",
+    #             "parameters": {
+    #                 "type": "object",
+    #                 "properties": {
+    #                     "customer_email": {
+    #                         "type": "string",
+    #                         "description": "Customer's email address"
+    #                     },
+    #                     "subject": {
+    #                         "type": "string",
+    #                         "description": "Brief subject of the issue"
+    #                     },
+    #                     "message": {
+    #                         "type": "string",
+    #                         "description": "Detailed description of the issue"
+    #                     }
+    #                 },
+    #                 "required": ["customer_email", "subject", "message"]
+    #             }
+    #         }
+    #     }
+    # 
     ]
 
     async def execute(self, company_id: str, tool_name: str, arguments: dict) -> str:
         """Execute a tool and return the result as a string."""
         handlers = {
-            "search_products": self._search_products,
             "get_product_details": self._get_product_details,
             "track_package": self._track_package,
             "create_support_ticket": self._create_support_ticket,
@@ -104,27 +87,15 @@ class ToolService:
         if not handler:
             return json.dumps({"error": f"Unknown tool: {tool_name}"})
 
-        result = await handler(company_id, **arguments)
-        return json.dumps(result, default=str)
+        # Debug: log arguments
+        print(f"[TOOL] {tool_name} called with arguments: {arguments}")
 
-    async def _search_products(self, company_id: str, query: str) -> dict:
-        products = await self.db.search_products(company_id, query)
-        if not products:
-            return {"found": False, "message": "No products found matching your search."}
-        return {
-            "found": True,
-            "count": len(products),
-            "products": [
-                {
-                    "id": p["id"],
-                    "name": p["name"],
-                    "sku": p.get("sku"),
-                    "price": float(p["price"]) if p.get("price") else None,
-                    "in_stock": p.get("stock", 0) > 0,
-                }
-                for p in products
-            ]
-        }
+        try:
+            result = await handler(company_id, **arguments)
+            return json.dumps(result, default=str)
+        except TypeError as e:
+            print(f"[TOOL ERROR] {tool_name} failed: {e}")
+            return json.dumps({"error": f"Invalid arguments for {tool_name}: {str(e)}", "arguments_received": arguments})
 
     async def _get_product_details(self, company_id: str, product_id: str) -> dict:
         product = await self.db.get_product(company_id, product_id)
@@ -133,13 +104,19 @@ class ToolService:
         return {
             "found": True,
             "product": {
-                "id": product["id"],
+                "id": str(product["id"]),
+                "handle": product.get("handle"),
                 "name": product["name"],
                 "sku": product.get("sku"),
                 "description": product.get("description"),
+                "short_description": product.get("short_description"),
                 "price": float(product["price"]) if product.get("price") else None,
+                "compare_at_price": float(product["compare_at_price"]) if product.get("compare_at_price") else None,
                 "stock": product.get("stock", 0),
                 "in_stock": product.get("stock", 0) > 0,
+                "image_url": product.get("image_url"),
+                "images": json.loads(product["images"]) if product.get("images") else [],
+                "variants": json.loads(product["variants"]) if product.get("variants") else [],
             }
         }
 

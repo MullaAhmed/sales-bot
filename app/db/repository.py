@@ -30,11 +30,30 @@ class CompanyDB:
         return company
 
     async def get_product(self, company_id: str, product_id: str) -> dict | None:
-        row = await self.pool.fetchrow(
-            """SELECT * FROM products
-               WHERE company_id = $1 AND id = $2""",
-            company_id, product_id
-        )
+        # Try UUID first, then fall back to SKU lookup
+        try:
+            # Attempt to query by UUID
+            row = await self.pool.fetchrow(
+                """SELECT * FROM products
+                   WHERE company_id = $1 AND id = $2""",
+                company_id, product_id
+            )
+        except Exception:
+            # If UUID query fails, try SKU lookup
+            row = await self.pool.fetchrow(
+                """SELECT * FROM products
+                   WHERE company_id = $1 AND sku = $2""",
+                company_id, product_id
+            )
+
+        # If UUID query returned nothing, try SKU lookup
+        if not row:
+            row = await self.pool.fetchrow(
+                """SELECT * FROM products
+                   WHERE company_id = $1 AND sku = $2""",
+                company_id, product_id
+            )
+
         return dict(row) if row else None
 
     async def search_products(self, company_id: str, query: str) -> list[dict]:

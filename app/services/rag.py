@@ -49,7 +49,7 @@ class RAGService:
         company_id: str,
         query: str,
         limit: int = 10,
-        score_threshold: float = 0.35,
+        score_threshold: float = 0.50,
     ) -> list[dict]:
         """Retrieve relevant documents for a query with caching."""
         # Normalize query for cache key (lowercase, first 100 chars)
@@ -91,6 +91,12 @@ class RAGService:
         for i, r in enumerate(results, 1):
             title = r.get("title", "Document")
             text = r.get("text", "")
-            parts.append(f"[{i}] {title}\n{text}")
+            metadata = r.get("metadata", {})
+
+            # Include product_id if available
+            if metadata.get("product_id"):
+                parts.append(f"[{i}] {title} (Product ID: {metadata['product_id']})\n{text}")
+            else:
+                parts.append(f"[{i}] {title}\n{text}")
 
         return "\n\n".join(parts)

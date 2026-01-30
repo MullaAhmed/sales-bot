@@ -5,18 +5,18 @@ Multi-company customer support chatbot with RAG and tool calling.
 ## Features
 
 - **Multi-company**: Single deployment serves multiple companies
-- **RAG**: Hybrid search (dense + sparse) for FAQ/policy documents
-- **Tool Calling**: Product search, order tracking, support ticket creation
+- **RAG**: Dense vector search for FAQ/policy documents
+- **Tool Calling**: Product details lookup
 - **Conversation History**: Backend-managed chat sessions
-- **Priority Flow**: Urgent → High → Medium → Low query handling
+- **Priority Flow**: High → Medium → Low query handling
 
 ## Tech Stack
 
 - **Backend**: FastAPI + Uvicorn
-- **Vector Store**: Qdrant (hybrid search with RRF fusion)
-- **Embeddings**: FastEmbed (Jina + BM42)
+- **Vector Store**: Qdrant
+- **Embeddings**: FastEmbed (all-MiniLM-L6-v2)
 - **Database**: Supabase/PostgreSQL (asyncpg)
-- **LLM**: OpenAI GPT-4o-mini
+- **LLM**: OpenAI gpt-5-nano
 
 ## Setup
 
@@ -55,7 +55,7 @@ uv run python scripts/setup_qdrant.py <company_id>
 ### 5. Start Server
 
 ```bash
-uv run python main.py
+uv run python app/main.py
 ```
 
 Server runs at `http://localhost:8000`
@@ -67,23 +67,32 @@ sales-bot/
 ├── app/
 │   ├── main.py              # FastAPI app
 │   ├── config.py            # Settings
+│   ├── dependencies.py      # Dependency injection
 │   ├── api/
 │   │   ├── routes.py        # API endpoints
 │   │   └── schemas.py       # Request/response models
 │   ├── db/
 │   │   ├── postgres.py      # Connection pool
-│   │   └── models.py        # Database operations
+│   │   ├── repository.py    # Database operations
+│   │   └── cache.py         # Caching layer
 │   ├── vector/
 │   │   ├── qdrant.py        # Vector store
-│   │   └── embeddings.py    # FastEmbed
+│   │   ├── embeddings.py    # FastEmbed
+│   │   └── chunker.py       # Document chunking
 │   └── services/
 │       ├── chatbot.py       # Chat logic + priority flow
 │       ├── rag.py           # Document retrieval
 │       └── tools.py         # Tool definitions
 ├── scripts/
 │   ├── create_tables.sql    # Database schema
+│   ├── seed_data.sql        # Seed data
 │   ├── setup_supabase.py    # DB setup script
-│   └── setup_qdrant.py      # Vector store setup
+│   ├── setup_qdrant.py      # Vector store setup
+│   ├── seed_supabase.py     # Seed database
+│   ├── seed_qdrant.py       # Seed vector store
+│   ├── reset_db.py          # Reset database
+│   └── create_data.py       # Generate test data
+├── frontend/                 # Frontend application
 ├── docs/
 │   └── API.md               # API documentation
 ├── .env.example
@@ -95,19 +104,17 @@ sales-bot/
 
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | Supabase PostgreSQL connection string (use port 5432) |
+| `DATABASE_URL` | Supabase PostgreSQL connection string (pooler, port 5432) |
 | `QDRANT_URL` | Qdrant server URL |
 | `QDRANT_API_KEY` | Qdrant API key (optional for local) |
 | `OPENAI_API_KEY` | OpenAI API key |
-| `OPENAI_MODEL` | Model name (default: gpt-4o-mini) |
-| `DENSE_MODEL` | Dense embedding model |
-| `SPARSE_MODEL` | Sparse embedding model |
+| `OPENAI_MODEL` | Model name (default: gpt-5-nano) |
 
 ## Adding a New Tenant
 
 1. Insert company into Supabase:
 ```sql
-INSERT INTO companys (id, name) VALUES ('uuid-here', 'Company Name');
+INSERT INTO companies (id, name) VALUES ('company-slug', 'Company Name');
 ```
 
 2. Create Qdrant collections:

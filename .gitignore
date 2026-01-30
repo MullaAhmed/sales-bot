@@ -10,3 +10,5 @@ wheels/
 .venv
 todo.txt
 .env
+
+scripts/*.json

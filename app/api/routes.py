@@ -35,6 +35,9 @@ async def _get_company_and_conversation(request: ChatRequest):
         raise HTTPException(status_code=400, detail="No user message found")
     message = user_messages[-1].content
 
+    # Convert frontend messages to history format (exclude the last user message)
+    history = [{"role": m.role, "content": m.content} for m in request.messages[:-1]]
+
     company = await _db.get_company(request.company_id)
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
@@ -45,19 +48,20 @@ async def _get_company_and_conversation(request: ChatRequest):
     if not conv:
         await _db.create_conversation(request.company_id, conversation_id)
 
-    return message, company, conversation_id
+    return message, company, conversation_id, history
 
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest):
     """Send a message to the chatbot. Returns JSON response."""
-    message, company, conversation_id = await _get_company_and_conversation(request)
+    message, company, conversation_id, history = await _get_company_and_conversation(request)
 
     result = await _chatbot.chat(
         company_id=request.company_id,
         company_name=company["name"],
         message=message,
         conversation_id=conversation_id,
+        history=history,
     )
 
     return ChatResponse(conversation_id=conversation_id, **result)
@@ -66,7 +70,7 @@ async def chat(request: ChatRequest):
 @router.post("/chat/stream")
 async def chat_stream(request: ChatRequest):
     """Send a message to the chatbot with streaming. Supports Vercel AI SDK format."""
-    message, company, conversation_id = await _get_company_and_conversation(request)
+    message, company, conversation_id, history = await _get_company_and_conversation(request)
 
     async def generate():
         async for event in _chatbot.chat_stream(
@@ -74,6 +78,7 @@ async def chat_stream(request: ChatRequest):
             company_name=company["name"],
             message=message,
             conversation_id=conversation_id,
+            history=history,
         ):
             yield event
 
